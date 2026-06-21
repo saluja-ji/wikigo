@@ -1,0 +1,50 @@
+name: Go Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test against multiple modern Go versions to ensure maximum compatibility
+        go-version: [ '1.21', '1.22' ]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true # Speeds up subsequent runs by caching dependencies and builds
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Verify Module Dependencies
+        run: go mod verify
+
+      - name: Check Code Formatting (gofmt)
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not idiomatic Go (unformatted):"
+            gofmt -l .
+            echo "Please run 'go fmt ./...' on your local machine to resolve this."
+            exit 1
+          fi
+
+      - name: Vet Code (Static Analysis)
+        run: go vet ./...
+
+      - name: Run Unit Tests with Race Detector
+        # Running with '-race' is crucial since your SDK uses client-side rate limiters 
+        # and retry loops. It will catch any concurrent memory access issues.
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
