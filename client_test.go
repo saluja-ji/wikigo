@@ -38,7 +38,7 @@ func TestPagesClient_Get(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	page, err := client.Pages.Get(context.Background(), "Albert Einstein")
@@ -90,7 +90,7 @@ func TestPagesClient_GetSummary(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	summary, err := client.Pages.GetSummary(context.Background(), "Albert Einstein")
@@ -139,7 +139,7 @@ func TestSearchClient_Pages(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	resp, err := client.Search.Pages(context.Background(), "jupiter", 2)
@@ -194,7 +194,7 @@ func TestRevisionsClient_List(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	history, err := client.Revisions.List(context.Background(), "Jupiter", 5, "999999")
@@ -247,7 +247,7 @@ func TestMediaClient_GetFile(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	file, err := client.Media.GetFile(context.Background(), "File:The Blue Marble.jpg")
@@ -275,7 +275,7 @@ func TestClient_NotFound(t *testing.T) {
 
 	client := NewClient(
 		WithBaseURL(server.URL),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	_, err := client.Pages.Get(context.Background(), "MissingPage")

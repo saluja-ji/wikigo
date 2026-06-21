@@ -71,7 +71,7 @@ func TestTransport_Retry503Success(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(2),
-		WithRateLimit(rate.Inf, 0), // Disable rate limit for test speed
+		WithRateLimit(rate.Inf, 1), // Disable rate limit for test speed
 	)
 
 	req, err := client.newRequest(context.Background(), http.MethodGet, true, "/dummy", nil)
@@ -103,7 +103,7 @@ func TestTransport_RetryExceeded(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(2),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	req, err := client.newRequest(context.Background(), http.MethodGet, true, "/dummy", nil)
@@ -152,7 +152,7 @@ func TestTransport_RetryAfterHeader(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(1),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	start := time.Now()
@@ -192,7 +192,7 @@ func TestTransport_NoRetryPermanentError(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(3),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	req, err := client.newRequest(context.Background(), http.MethodGet, true, "/dummy", nil)
@@ -225,7 +225,7 @@ func TestTransport_ContextCancelled(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(3),
-		WithRateLimit(rate.Inf, 0),
+		WithRateLimit(rate.Inf, 1),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())

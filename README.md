@@ -151,9 +151,9 @@ type WikiError struct {
 }
 ```
 You can inspect errors directly using `errors.Is` to check for specific error states:
-- `errors.Is(err, errors.ErrNotFound)`
-- `errors.Is(err, errors.ErrRateLimited)`
-- `errors.Is(err, errors.ErrUnauthorized)`
+- `errors.Is(err, wikierrors.ErrNotFound)`
+- `errors.Is(err, wikierrors.ErrRateLimited)`
+- `errors.Is(err, wikierrors.ErrUnauthorized)`
 
 ---
 

@@ -42,6 +42,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	var lastErr error
 	var resp *http.Response
+	var lastWikiErr *wikierrors.WikiError
 
 	// Seed rand source for jitter (thread-safe, package-level math/rand is auto-seeded since Go 1.20)
 	for attempt := 0; attempt <= t.maxRetries; attempt++ {
@@ -102,6 +103,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			Err:        sentinelErr,
 			Message:    msg,
 		}
+		lastWikiErr = wikiErr
 
 		// Determine if we should retry.
 		// Only retry on rate limiting (429) or temporary server unavailability (503).
@@ -112,7 +114,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		// Calculate backoff delay
 		var delay time.Duration
-		if resp.StatusCode == http.StatusTooManyRequests {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
 			if retryAfterHeader := resp.Header.Get("Retry-After"); retryAfterHeader != "" {
 				delay = parseRetryAfter(retryAfterHeader)
 			}
@@ -131,6 +133,9 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
+	if lastWikiErr != nil {
+		return nil, lastWikiErr
+	}
 	return nil, fmt.Errorf("retry limit exceeded")
 }
 
@@ -165,8 +170,20 @@ func parseRetryAfter(header string) time.Duration {
 // calculateBackoff calculates exponential backoff with ±20% jitter.
 // attempt is 0-indexed.
 func calculateBackoff(attempt int) time.Duration {
+	// Prevent bit shift overflow (time.Second is 10^9, so shift of 30 is safe for float64/int64)
+	shift := attempt
+	if shift > 30 {
+		shift = 30
+	}
 	// base backoff: 1s * 2^attempt
-	backoff := float64(time.Second << attempt)
+	backoff := float64(time.Second << shift)
+
+	// Cap base backoff at a reasonable maximum (e.g. 30 seconds) to prevent infinite growth
+	const maxBackoff = 30 * time.Second
+	if backoff > float64(maxBackoff) {
+		backoff = float64(maxBackoff)
+	}
+
 	// ±20% jitter (ranges between 0.8 and 1.2)
 	jitter := 0.8 + 0.4*rand.Float64()
 	return time.Duration(backoff * jitter)
