@@ -1,6 +1,6 @@
 # wikigo
 
-`wikigo` is a production-quality, type-safe Go SDK for the Wikimedia REST API. It wraps the API with proper typing, context propagation, error wrapping, robust rate limiting, and exponential backoff retry logic.
+`wikigo` is a , type-safe Go SDK for the Wikimedia REST API. It wraps the API with proper typing, context propagation, error wrapping, robust rate limiting, and  backoff retry logic.
 
 ---
 
