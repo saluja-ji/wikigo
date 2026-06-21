@@ -21,23 +21,23 @@ classDiagram
         -httpClient *http.Client
     }
     class PagesClient {
-        +Get(ctx, title) (*Page, error)
-        +GetSummary(ctx, title) (*Summary, error)
+        +Get(ctx, title)
+        +GetSummary(ctx, title)
     }
     class SearchClient {
-        +Pages(ctx, query, limit) (*SearchResponse, error)
+        +Pages(ctx, query, limit)
     }
     class RevisionsClient {
-        +List(ctx, title, limit, olderThan) (*RevisionList, error)
+        +List(ctx, title, limit, olderThan)
     }
     class MediaClient {
-        +GetFile(ctx, title) (*File, error)
+        +GetFile(ctx, title)
     }
     class retryTransport {
-        -underlying http.RoundTripper
-        -limiter *rate.Limiter
+        -underlying RoundTripper
+        -limiter Limiter
         -maxRetries int
-        +RoundTrip(req) (*Response, error)
+        +RoundTrip(req)
     }
 
     Client *-- PagesClient
