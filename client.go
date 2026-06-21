@@ -1,4 +1,6 @@
-// Package wikigo implements the Wikimedia REST API SDK.
+// Package wikigo provides a production-quality, type-safe Go SDK for the Wikimedia REST API.
+// It wraps pages, search, revisions, and media APIs with context propagation,
+// structured error handling, rate limiting, and exponential backoff retry logic.
 package wikigo
 
 import (
