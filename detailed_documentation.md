@@ -108,12 +108,12 @@ The SDK integrates `golang.org/x/time/rate` to implement a token bucket rate lim
 ### Backoff and Jitter Calculation
 When retrying transient errors (`HTTP 429` and `503`), the SDK uses exponential backoff:
 
-$$\text{base\_backoff} = 1\text{s} \times 2^{\text{attempt}}$$
+$$\text{backoff} = 1\text{s} \times 2^{\text{attempt}}$$
 
 A randomized jitter of $\pm20\%$ is added:
 
 $$\text{jitter} \in [0.8, 1.2]$$
-$$\text{delay} = \text{base\_backoff} \times \text{jitter}$$
+$$\text{delay} = \text{backoff} \times \text{jitter}$$
 
 To prevent overflow on very large retry limits, the bit shift is capped at $2^{30}$, and the base backoff is capped at a maximum of `30 * time.Second`.
 
