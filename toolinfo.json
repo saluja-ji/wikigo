@@ -1,5 +1,5 @@
 {
-    "$schema": "https://toolhub.wikimedia.org/schemas/v1/toolinfo.json",
+    "_schema": "/toolinfo/1.2.2",
     "name": "wikigo",
     "title": "wikigo",
     "description": "A clean, idiomatically designed Go SDK for the Wikimedia REST API. Features robust client-side token-bucket rate limiting, smart exponential retry backoffs with randomized jitter, and resource-scoped sub-clients.",
