@@ -1,0 +1,36 @@
+{
+    "$schema": "https://toolhub.wikimedia.org/schemas/v1/toolinfo.json",
+    "name": "wikigo",
+    "title": "wikigo",
+    "description": "A clean, idiomatically designed Go SDK for the Wikimedia REST API. Features robust client-side token-bucket rate limiting, smart exponential retry backoffs with randomized jitter, and resource-scoped sub-clients.",
+    "url": "https://github.com/saluja-ji/wikigo",
+    "tool_type": "coding framework",
+    "license": [
+        "MIT"
+    ],
+    "repository": "https://github.com/saluja-ji/wikigo",
+    "bugtracker": "https://github.com/saluja-ji/wikigo/issues",
+    "user_docs": [
+        "https://pkg.go.dev/github.com/saluja-ji/wikigo@v1.0.1"
+    ],
+    "keywords": [
+        "go",
+        "golang",
+        "wikimedia",
+        "wikipedia",
+        "sdk",
+        "api-client",
+        "rate-limiting",
+        "retry-mechanism",
+        "rest-api"
+    ],
+    "authors": [
+        {
+            "name": "Pushpit Saluja",
+            "email": "salujapushpit3@gmail.com",
+            "wiki": "User:Salujapushpit",
+            "developer_username": "spushpit"
+        }
+    ],
+    "api_endpoint": "https://en.wikipedia.org/w/rest.php/v1"
+}
