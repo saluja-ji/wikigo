@@ -59,7 +59,10 @@ func NewClient(opts ...Option) *Client {
 	}
 
 	// Wrap transport of target http.Client with our custom retry and rate limiting transport
-	transport := newRetryTransport(c.httpClient.Transport, c.rateLimit, c.rateBurst, c.maxRetries)
+	var transport http.RoundTripper = newRetryTransport(c.httpClient.Transport, c.rateLimit, c.rateBurst, c.maxRetries)
+	if c.cacheEnabled {
+		transport = newCacheTransport(transport, c.cacheTTL, c.cacheMaxEntries)
+	}
 
 	client := &Client{
 		cfg: c,

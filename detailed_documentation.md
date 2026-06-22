@@ -33,6 +33,13 @@ classDiagram
     class MediaClient {
         +GetFile(ctx, title)
     }
+    class cacheTransport {
+        -underlying RoundTripper
+        -ttl Duration
+        -maxEntries int
+        -cache map
+        +RoundTrip(req)
+    }
     class retryTransport {
         -underlying RoundTripper
         -limiter Limiter
@@ -44,7 +51,8 @@ classDiagram
     Client *-- SearchClient
     Client *-- RevisionsClient
     Client *-- MediaClient
-    Client --> retryTransport : wraps http.Client Transport
+    Client --> cacheTransport : wraps Transport (optional)
+    cacheTransport --> retryTransport : wraps retryTransport
 ```
 
 ---
@@ -55,7 +63,7 @@ The SDK is divided into three packages to separate public domains, internal logi
 
 | Package Path | Purpose |
 | :--- | :--- |
-| `github.com/saluja-ji/wikigo` | Main entrypoint, contains constructor, functional options, resource sub-clients, and `retryTransport`. |
+| `github.com/saluja-ji/wikigo` | Main entrypoint, contains constructor, functional options, resource sub-clients, retryTransport, and cacheTransport. |
 | `github.com/saluja-ji/wikigo/models` | Strongly-typed structs representing Wikimedia REST API JSON responses. No `map[string]interface{}`. |
 | `github.com/saluja-ji/wikigo/errors` | Sentinel error definitions and the custom wrapped `WikiError` struct. |
 
@@ -64,43 +72,62 @@ The SDK is divided into three packages to separate public domains, internal logi
 ## 3. Internal Mechanics
 
 ### Request Execution Flow
-Every request initiated by a sub-client passes through the custom `retryTransport` RoundTripper. Below is the sequence of execution:
+Every request initiated by a sub-client passes through the configured transport chain. Below is the sequence of execution when both caching and retries are active:
 
 ```mermaid
 sequenceDiagram
     participant Caller as Sub-Client Caller
+    participant Cache as cacheTransport (Optional)
     participant Transport as retryTransport
     participant Limiter as rate.Limiter (Token Bucket)
     participant Server as Wikimedia API Server
 
-    Caller->>Transport: client.do(req)
-    activate Transport
-    Transport->>Limiter: Wait(ctx)
-    activate Limiter
-    Note over Limiter: Blocks if rate limit exceeded
-    Limiter-->>Transport: Available (or Canceled)
-    deactivate Limiter
-    
-    rect rgb(240, 240, 240)
-        Note over Transport: Loop attempt (0 to maxRetries)
-        Transport->>Server: underlying.RoundTrip(req)
-        activate Server
-        Server-->>Transport: HTTP Response (Status Code)
-        deactivate Server
+    Caller->>Cache: client.do(req)
+    activate Cache
+    alt Cache Hit (GET only)
+        Cache-->>Caller: Cached http.Response
+    else Cache Miss / Non-GET
+        Cache->>Transport: RoundTrip(req)
+        activate Transport
+        Transport->>Limiter: Wait(ctx)
+        activate Limiter
+        Note over Limiter: Blocks if rate limit exceeded
+        Limiter-->>Transport: Available (or Canceled)
+        deactivate Limiter
         
-        alt Success (Status < 400)
-            Transport-->>Caller: http.Response
-        else Retriable Error (429 or 503)
-            Note over Transport: Parse Retry-After or compute backoff + jitter
-            Note over Transport: Sleep wait duration
-            Note over Transport: Retry request...
-        else Permanent Error (400, 401, 404, etc.)
-            Note over Transport: Wrap as WikiError
-            Transport-->>Caller: error (WikiError)
+        rect rgb(240, 240, 240)
+            Note over Transport: Loop attempt (0 to maxRetries)
+            Transport->>Server: underlying.RoundTrip(req)
+            activate Server
+            Server-->>Transport: HTTP Response (Status Code)
+            deactivate Server
+            
+            alt Success (Status < 400)
+                Transport-->>Cache: http.Response
+            else Retriable Error (429 or 503)
+                Note over Transport: Parse Retry-After or compute backoff + jitter
+                Note over Transport: Sleep wait duration
+                Note over Transport: Retry request...
+            else Permanent Error (400, 401, 404, etc.)
+                Note over Transport: Wrap as WikiError
+                Transport-->>Cache: error (WikiError)
+            end
         end
+        deactivate Transport
+        alt Successful GET Response
+            Note over Cache: Cache response and body bytes
+        end
+        Cache-->>Caller: http.Response or error
     end
-    deactivate Transport
+    deactivate Cache
 ```
+
+### In-Memory Caching (cacheTransport)
+When enabled via the `WithCache` functional option, the `cacheTransport` wraps the `retryTransport` at the outer layer of the HTTP client's transport chain. It caches only successful `GET` requests (status `200 OK`).
+
+- **Concurrency Safety**: Map access is fully guarded by a `sync.RWMutex`, permitting parallel reads and exclusive lock writes.
+- **Independence & Memory Isolation**: Each cache hit returns a fresh `*http.Response` object constructed with cloned headers (`resp.Header.Clone()`) and a fresh reader stream using `io.NopCloser(bytes.NewReader(bodyBytes))`. This isolates concurrent callers reading from the same cached resource.
+- **Eviction Protocol**: To prevent memory leakage, a capacity limit is enforced. When adding a new entry to a full cache, a pseudo-random entry is evicted using a single-iteration `for...break` loop on the map before the new entry is written.
 
 ### Rate Limiting
 The SDK integrates `golang.org/x/time/rate` to implement a token bucket rate limiter. It is fully compliant with the Wikimedia API policy which limits clients to safe requests per second. The limiter respects context cancellations during blocking waits.
@@ -166,6 +193,7 @@ client := wikigo.NewClient(
     wikigo.WithRateLimit(rate.Limit(5), 5),           // Default: 15 req/s
     wikigo.WithMaxRetries(5),                         // Default: 3
     wikigo.WithUserAgent("MyBot/1.0 (contact@me.org)"), // Default: SDK default UA
+    wikigo.WithCache(10 * time.Minute, 200),          // Default: caching disabled (enables caching)
 )
 ```
 

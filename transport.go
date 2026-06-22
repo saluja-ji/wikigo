@@ -1,16 +1,103 @@
 package wikigo
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	wikierrors "github.com/saluja-ji/wikigo/errors"
 	"golang.org/x/time/rate"
 )
+
+type cacheEntry struct {
+	statusCode int
+	status     string
+	header     http.Header
+	body       []byte
+	expiresAt  time.Time
+}
+
+// cacheTransport wraps an underlying HTTP RoundTripper and implements transparent
+// in-memory caching of successful GET requests.
+type cacheTransport struct {
+	underlying http.RoundTripper
+	ttl        time.Duration
+	maxEntries int
+
+	mu    sync.RWMutex
+	cache map[string]cacheEntry
+}
+
+// newCacheTransport constructs a new cacheTransport.
+func newCacheTransport(underlying http.RoundTripper, ttl time.Duration, maxEntries int) *cacheTransport {
+	return &cacheTransport{
+		underlying: underlying,
+		ttl:        ttl,
+		maxEntries: maxEntries,
+		cache:      make(map[string]cacheEntry),
+	}
+}
+
+// RoundTrip implements the http.RoundTripper interface.
+func (c *cacheTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Method != http.MethodGet {
+		return c.underlying.RoundTrip(req)
+	}
+
+	key := req.URL.String()
+
+	c.mu.RLock()
+	entry, found := c.cache[key]
+	c.mu.RUnlock()
+
+	if found && time.Now().Before(entry.expiresAt) {
+		resp := &http.Response{
+			StatusCode:    entry.statusCode,
+			Status:        entry.status,
+			Header:        entry.header.Clone(),
+			Body:          io.NopCloser(bytes.NewReader(entry.body)),
+			ContentLength: int64(len(entry.body)),
+			Request:       req,
+		}
+		return resp, nil
+	}
+
+	resp, err := c.underlying.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusOK && resp.Body != nil {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err == nil {
+			resp.Body.Close()
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+			c.mu.Lock()
+			if len(c.cache) >= c.maxEntries {
+				for k := range c.cache {
+					delete(c.cache, k)
+					break
+				}
+			}
+			c.cache[key] = cacheEntry{
+				statusCode: resp.StatusCode,
+				status:     resp.Status,
+				header:     resp.Header.Clone(),
+				body:       bodyBytes,
+				expiresAt:  time.Now().Add(c.ttl),
+			}
+			c.mu.Unlock()
+		}
+	}
+
+	return resp, nil
+}
 
 // retryTransport wraps an underlying HTTP RoundTripper and implements transparent
 // rate limiting and retry logic with exponential backoff and jitter.

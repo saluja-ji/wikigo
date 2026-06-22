@@ -12,15 +12,18 @@ type Option func(*config)
 
 // config holds all configuration parameters for the wikigo client.
 type config struct {
-	language   string
-	project    string
-	baseURL    string
-	timeout    time.Duration
-	userAgent  string
-	rateLimit  rate.Limit
-	rateBurst  int
-	maxRetries int
-	httpClient *http.Client
+	language        string
+	project         string
+	baseURL         string
+	timeout         time.Duration
+	userAgent       string
+	rateLimit       rate.Limit
+	rateBurst       int
+	maxRetries      int
+	httpClient      *http.Client
+	cacheEnabled    bool
+	cacheTTL        time.Duration
+	cacheMaxEntries int
 }
 
 // defaultConfig returns a config struct with production-ready default values.
@@ -102,5 +105,14 @@ func WithHTTPClient(client *http.Client) Option {
 		if client != nil {
 			c.httpClient = client
 		}
+	}
+}
+
+// WithCache enables caching of successful GET requests with the specified TTL and maximum entry limit.
+func WithCache(ttl time.Duration, maxEntries int) Option {
+	return func(c *config) {
+		c.cacheEnabled = true
+		c.cacheTTL = ttl
+		c.cacheMaxEntries = maxEntries
 	}
 }

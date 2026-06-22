@@ -9,10 +9,11 @@
 - **Functional Options:** Modular and backward-compatible client initialization (e.g. custom subdomains, timeouts, user-agents, and retries).
 - **Context-Aware:** `context.Context` is passed as the first parameter to all public API calls to support cancellations, timeouts, and deadlines.
 - **Resource-Scoped Sub-Clients:** Intuitive structure matching the API resource layout (`client.Pages`, `client.Search`, `client.Revisions`, `client.Media`).
-- **Custom Transport (`retryTransport`):** An invisible `http.RoundTripper` layer handling:
+- **Custom Transport (`retryTransport` & `cacheTransport`):** Transparent layers handling:
   - **Token Bucket Rate Limiting:** Smooth request pacing using `golang.org/x/time/rate`.
   - **Exponential Backoff & Jitter:** Random ±20% jitter to prevent thundering herd problems.
   - **Selective Retries:** Retries only transient server errors (`HTTP 503`) and rate-limit blocks (`HTTP 429`), respecting the `Retry-After` header.
+  - **In-Memory Caching:** Short-circuits successful `GET` requests (status 200 OK) using cloned response headers and fresh body readers, with a configurable capacity cap and pseudo-random eviction.
 - **Dedicated Errors Package:** Explicit error handling with status code preservation (`WikiError` struct) and sentinel errors for easy comparisons (`errors.Is`).
 - **No External Web Frameworks:** Built purely on top of Go's standard library and the official x/time package.
 
@@ -35,7 +36,7 @@ go get github.com/saluja-ji/wikigo
 │   └── models.go       # Strongly typed JSON representation structs
 ├── client.go           # Core client and sub-client definitions
 ├── options.go          # Configuration options (Functional Options)
-├── transport.go        # Custom retry & rate limiting http.RoundTripper
+├── transport.go        # Custom retry, rate limiting, and cache http.RoundTripper
 ├── pages.go            # Pages sub-client implementations
 ├── search.go           # Search sub-client implementations
 ├── revisions.go        # Revisions sub-client implementations
@@ -63,18 +64,19 @@ import (
 )
 
 func main() {
-	// 1. Initialize client using Functional Options
+	// 1. Initialize client using Functional Options (with optional caching)
 	client := wikigo.NewClient(
 		wikigo.WithLanguage("en"),
 		wikigo.WithProject("wikipedia"),
 		wikigo.WithTimeout(10*time.Second),
 		wikigo.WithRateLimit(rate.Limit(10), 10), // Limit to 10 req/sec
 		wikigo.WithMaxRetries(3),
+		wikigo.WithCache(5*time.Minute, 100),     // Cache GET requests for 5 min, max 100 entries
 	)
 
 	ctx := context.Background()
 
-	// 2. Fetch page summary details
+	// 2. Fetch page summary details (cached if requested again)
 	summary, err := client.Pages.GetSummary(ctx, "Earth")
 	if err != nil {
 		handleError(err)
@@ -123,6 +125,13 @@ func handleError(err error) {
 ---
 
 ## Detailed Design Details
+
+### In-Memory Caching
+The SDK supports transparent, thread-safe in-memory caching of successful `GET` requests via the functional option `WithCache(ttl, maxEntries)`.
+When enabled, the `cacheTransport` sits at the very outer edge of the `http.Client.Transport` chain. It short-circuits identical `GET` requests (matching URL strings) within the specified Time-To-Live (TTL). 
+
+- **Safety and Clones**: To prevent race conditions and cross-request side effects, header fields are copied via `resp.Header.Clone()` and the response body is served through a fresh `io.NopCloser(bytes.NewReader(bodyBytes))` reader on every cache hit.
+- **Eviction Strategy**: To manage memory usage, the cache capacity is capped. If the cache reaches the limit, a pseudo-random entry is evicted using a single-iteration `for...break` loop before saving the new entry.
 
 ### Rate Limiting
 A token bucket rate limiter is embedded directly inside `retryTransport`. The client blocks appropriately using `Wait()` before a request goes out:
