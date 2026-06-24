@@ -1,4 +1,4 @@
-// Package wikigo implements the Wikimedia REST API SDK.
+// Package wikigo implements the Wikimedia API client.
 package wikigo
 
 import (

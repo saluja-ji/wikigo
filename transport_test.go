@@ -1,4 +1,4 @@
-// Package wikigo implements the Wikimedia REST API SDK.
+// Package wikigo implements the Wikimedia API client.
 package wikigo
 
 import (
@@ -17,20 +17,19 @@ import (
 )
 
 func TestTransport_RateLimiter(t *testing.T) {
-	// Setup a mock server
+	// Start mock server.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	// Configure transport with a strict rate limiter (e.g., 2 requests per second, burst 1)
-	// This means a request can only occur every 500ms.
+	// Configure a strict rate limit of 2 requests per second.
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithRateLimit(rate.Limit(2), 1),
 	)
 
-	// Send 3 requests and measure elapsed time
+	// Measure time taken for 3 requests.
 	start := time.Now()
 	ctx := context.Background()
 
@@ -47,11 +46,7 @@ func TestTransport_RateLimiter(t *testing.T) {
 	}
 
 	elapsed := time.Since(start)
-	// 3 requests with rate limit of 2/sec:
-	// Req 1: immediate (uses burst token)
-	// Req 2: waits 500ms
-	// Req 3: waits 500ms
-	// Total wait time should be at least 950ms (giving 50ms buffer).
+	// Verify the rate limiter delayed the requests appropriately.
 	if elapsed < 900*time.Millisecond {
 		t.Errorf("expected rate limiter to delay requests, total time elapsed: %v", elapsed)
 	}
@@ -73,7 +68,7 @@ func TestTransport_Retry503Success(t *testing.T) {
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithMaxRetries(2),
-		WithRateLimit(rate.Inf, 1), // Disable rate limit for test speed
+		WithRateLimit(rate.Inf, 1), // Disable rate limit for faster tests
 	)
 
 	req, err := client.newRequest(context.Background(), http.MethodGet, true, "/dummy", nil)
@@ -133,7 +128,7 @@ func TestTransport_RetryExceeded(t *testing.T) {
 	}
 
 	finalCount := atomic.LoadInt32(&callCount)
-	if finalCount != 3 { // 1 initial request + 2 retries = 3 total attempts
+	if finalCount != 3 { // 1 request + 2 retries = 3 attempts
 		t.Errorf("expected exactly 3 attempts, got %d", finalCount)
 	}
 }
@@ -143,7 +138,7 @@ func TestTransport_RetryAfterHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&callCount, 1)
 		if count == 1 {
-			w.Header().Set("Retry-After", "1") // Ask client to wait 1 second
+			w.Header().Set("Retry-After", "1") // Wait 1 second
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		}
@@ -170,8 +165,7 @@ func TestTransport_RetryAfterHeader(t *testing.T) {
 	defer resp.Body.Close()
 
 	elapsed := time.Since(start)
-	// We expect the client to have waited around 1s before the retry.
-	// Give a small buffer of 50ms.
+	// Verify client respected the Retry-After wait time.
 	if elapsed < 950*time.Millisecond {
 		t.Errorf("expected Retry-After to wait at least 1s, waited %v", elapsed)
 	}
@@ -186,7 +180,7 @@ func TestTransport_NoRetryPermanentError(t *testing.T) {
 	var callCount int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
-		w.WriteHeader(http.StatusNotFound) // 404 is a permanent error
+		w.WriteHeader(http.StatusNotFound) // 404 is permanent
 		w.Write([]byte("not found message"))
 	}))
 	defer server.Close()
@@ -266,7 +260,7 @@ func TestTransport_CacheSuccess(t *testing.T) {
 
 	ctx := context.Background()
 
-	// First request: Cache miss, hits server
+	// First request: hits the server.
 	req1, err := client.newRequest(ctx, http.MethodGet, true, "/dummy", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
@@ -287,7 +281,7 @@ func TestTransport_CacheSuccess(t *testing.T) {
 		t.Errorf("expected X-Custom-Header to be 'hello', got %q", resp1.Header.Get("X-Custom-Header"))
 	}
 
-	// Second request: Cache hit, should not hit server
+	// Second request: loads from cache.
 	req2, err := client.newRequest(ctx, http.MethodGet, true, "/dummy", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
@@ -330,7 +324,7 @@ func TestTransport_CacheNonGET(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Send POST requests
+	// Send POST requests.
 	for i := 0; i < 2; i++ {
 		req, err := client.newRequest(ctx, http.MethodPost, true, "/dummy", nil)
 		if err != nil {
@@ -357,7 +351,7 @@ func TestTransport_CacheTTL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Short TTL of 10ms
+	// Set short TTL of 10ms.
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithRateLimit(rate.Inf, 1),
@@ -370,7 +364,7 @@ func TestTransport_CacheTTL(t *testing.T) {
 	resp1, _ := client.do(req1)
 	resp1.Body.Close()
 
-	// Wait for TTL to expire
+	// Wait for TTL to expire.
 	time.Sleep(20 * time.Millisecond)
 
 	req2, _ := client.newRequest(ctx, http.MethodGet, true, "/dummy", nil)
@@ -389,7 +383,7 @@ func TestTransport_CacheCapEviction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Cache with max capacity of 2
+	// Cache capacity is 2.
 	client := NewClient(
 		WithBaseURL(server.URL),
 		WithRateLimit(rate.Inf, 1),
@@ -398,7 +392,7 @@ func TestTransport_CacheCapEviction(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Add 2 entries
+	// Add 2 entries.
 	req1, _ := client.newRequest(ctx, http.MethodGet, true, "/dummy1", nil)
 	resp1, _ := client.do(req1)
 	resp1.Body.Close()
@@ -407,12 +401,12 @@ func TestTransport_CacheCapEviction(t *testing.T) {
 	resp2, _ := client.do(req2)
 	resp2.Body.Close()
 
-	// Add a 3rd entry which should trigger eviction of one of the previous two
+	// 3rd entry triggers eviction of an older entry.
 	req3, _ := client.newRequest(ctx, http.MethodGet, true, "/dummy3", nil)
 	resp3, _ := client.do(req3)
 	resp3.Body.Close()
 
-	// Check underlying transport/cache state if possible, or just verify cache size is <= 2
+	// Verify the cache size is capped.
 	transport := client.httpClient.Transport.(*cacheTransport)
 	transport.mu.RLock()
 	cacheLen := len(transport.cache)

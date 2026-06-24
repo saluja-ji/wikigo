@@ -10,8 +10,7 @@ import (
 	"github.com/saluja-ji/wikigo/models"
 )
 
-// Pages searches for pages matching the query string in title or content.
-// It maps to the GET /search/page endpoint using Core REST API.
+// Pages searches for wiki pages matching the query.
 func (s *SearchClient) Pages(ctx context.Context, query string, limit int) (*models.SearchResponse, error) {
 	params := url.Values{}
 	params.Set("q", query)

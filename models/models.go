@@ -1,247 +1,246 @@
-// Package models defines the strongly typed data models used by the wikigo
-// Wikimedia REST API client.
+// Package models defines data models for the wikigo client.
 package models
 
 import (
 	"time"
 )
 
-// Thumbnail represents metadata about a page's or file's thumbnail image.
+// Thumbnail represents a page's thumbnail image.
 type Thumbnail struct {
-	// Source is the URL of the thumbnail image.
+	// Source is the image URL.
 	Source string `json:"source"`
-	// Width is the width of the thumbnail in pixels.
+	// Width in pixels.
 	Width int `json:"width"`
-	// Height is the height of the thumbnail in pixels.
+	// Height in pixels.
 	Height int `json:"height"`
 }
 
-// ImageInfo represents detailed metadata for an image (original or preferred version).
+// ImageInfo represents metadata for an image.
 type ImageInfo struct {
-	// Source is the URL of the image.
+	// Source is the image URL.
 	Source string `json:"source"`
-	// Width is the width of the image in pixels.
+	// Width in pixels.
 	Width int `json:"width"`
-	// Height is the height of the image in pixels.
+	// Height in pixels.
 	Height int `json:"height"`
 }
 
-// NamespaceInfo represents a wiki namespace identifier and label.
+// NamespaceInfo holds wiki namespace details.
 type NamespaceInfo struct {
-	// ID is the namespace ID (e.g., 0 for main articles).
+	// ID is the namespace ID (e.g. 0 for articles).
 	ID int `json:"id"`
-	// Text is the namespace prefix text.
+	// Text is the namespace name.
 	Text string `json:"text"`
 }
 
-// TitleVariants represents normalized, canonical, and display variants of a title.
+// TitleVariants holds different versions of a page title.
 type TitleVariants struct {
-	// Canonical is the canonical form of the title.
+	// Canonical form.
 	Canonical string `json:"canonical"`
-	// Normalized is the normalized form of the title.
+	// Normalized form.
 	Normalized string `json:"normalized"`
-	// Display is the display form of the title.
+	// Display form.
 	Display string `json:"display"`
 }
 
-// LinkItem represents a link to a page version.
+// LinkItem holds URLs for different actions on a page.
 type LinkItem struct {
-	// Page is the URL to the wiki page.
+	// Page URL.
 	Page string `json:"page"`
-	// Revisions is the URL to the page history.
+	// History URL.
 	Revisions string `json:"revisions"`
-	// Edit is the URL to edit the page.
+	// Edit URL.
 	Edit string `json:"edit"`
-	// Talk is the URL to the talk page.
+	// Talk URL.
 	Talk string `json:"talk"`
 }
 
-// ContentURLs represents the desktop and mobile page URLs.
+// ContentURLs has links to desktop and mobile versions.
 type ContentURLs struct {
-	// Desktop contains desktop-specific URLs.
+	// Desktop URLs.
 	Desktop *LinkItem `json:"desktop,omitempty"`
-	// Mobile contains mobile-specific URLs.
+	// Mobile URLs.
 	Mobile *LinkItem `json:"mobile,omitempty"`
 }
 
-// RevisionInfo represents basic metadata for a page revision.
+// RevisionInfo is revision metadata.
 type RevisionInfo struct {
-	// ID is the unique revision identifier.
+	// ID is the revision identifier.
 	ID int64 `json:"id"`
-	// Timestamp is the date and time when the revision was saved.
+	// Timestamp of the edit.
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// License represents licensing metadata.
+// License is licensing metadata.
 type License struct {
-	// URL is the web address of the license terms.
+	// URL of the license.
 	URL string `json:"url"`
-	// Title is the name of the license.
+	// Title of the license.
 	Title string `json:"title"`
 }
 
-// Page represents metadata for a wiki page as returned by the bare endpoint.
+// Page is standard wiki page info.
 type Page struct {
-	// ID is the unique page identifier.
+	// ID of the page.
 	ID int64 `json:"id"`
-	// Key is the URL-friendly key of the page.
+	// Key is the URL name.
 	Key string `json:"key"`
-	// Title is the human-readable display title.
+	// Title is the readable name.
 	Title string `json:"title"`
-	// Latest holds metadata about the page's latest revision.
+	// Latest is revision info.
 	Latest *RevisionInfo `json:"latest,omitempty"`
-	// ContentModel is the content model type (e.g., wikitext).
+	// ContentModel (e.g., "wikitext").
 	ContentModel string `json:"content_model"`
-	// License contains license information for this page.
+	// License info.
 	License *License `json:"license,omitempty"`
-	// HTMLURL is the endpoint URL to retrieve the Parsoid HTML of the page.
+	// HTMLURL is the page HTML source URL.
 	HTMLURL string `json:"html_url"`
 }
 
-// Summary represents the page summary details used for previews.
+// Summary is a short overview of a page.
 type Summary struct {
-	// Type indicates the page type (e.g., "standard").
+	// Type of page.
 	Type string `json:"type"`
-	// Title is the normalized page title.
+	// Title of page.
 	Title string `json:"title"`
-	// DisplayTitle is the formatted display title.
+	// DisplayTitle formatted for display.
 	DisplayTitle string `json:"displaytitle"`
-	// Namespace details the namespace of the page.
+	// Namespace details.
 	Namespace *NamespaceInfo `json:"namespace,omitempty"`
-	// WikibaseItem is the Wikidata entity ID.
+	// WikibaseItem is the Wikidata ID.
 	WikibaseItem string `json:"wikibase_item"`
-	// Titles contains canonical, normalized and display variants of the title.
+	// Titles holds title variants.
 	Titles *TitleVariants `json:"titles,omitempty"`
 	// PageID is the unique page ID.
 	PageID int64 `json:"pageid"`
-	// Thumbnail is the lead image thumbnail metadata.
+	// Thumbnail image.
 	Thumbnail *Thumbnail `json:"thumbnail,omitempty"`
-	// OriginalImage is the full resolution lead image metadata.
+	// OriginalImage full version.
 	OriginalImage *ImageInfo `json:"originalimage,omitempty"`
-	// Lang is the language code of the page.
+	// Lang is the language code.
 	Lang string `json:"lang"`
-	// Dir is the text direction (e.g., "ltr").
+	// Dir is text direction (ltr/rtl).
 	Dir string `json:"dir"`
-	// Revision is the latest revision ID.
+	// Revision ID.
 	Revision string `json:"revision"`
-	// Tid is the transaction ID of the page revision.
+	// Tid is the transaction ID.
 	Tid string `json:"tid"`
-	// Timestamp is the date and time of the latest edit.
+	// Timestamp of last edit.
 	Timestamp time.Time `json:"timestamp"`
-	// Description is the short Wikidata summary description.
+	// Description is the short Wikidata summary.
 	Description string `json:"description"`
-	// Extract is a plain text summary extract of the page.
+	// Extract is the text summary.
 	Extract string `json:"extract"`
-	// ExtractHTML is the HTML summary extract of the page.
+	// ExtractHTML is the HTML summary.
 	ExtractHTML string `json:"extract_html"`
-	// ContentURLs provides external links to the page.
+	// ContentURLs contains page links.
 	ContentURLs *ContentURLs `json:"content_urls,omitempty"`
 }
 
-// User represents a wiki contributor.
+// User is a wiki editor.
 type User struct {
-	// ID is the unique user ID of the editor, or nil/0 for anonymous edits.
+	// ID of the user (0 if anonymous).
 	ID int64 `json:"id"`
-	// Name is the username of the contributor.
+	// Name of the user.
 	Name string `json:"name"`
 }
 
-// Revision represents a single edit revision in history.
+// Revision represents a single page edit.
 type Revision struct {
-	// ID is the unique revision ID.
+	// ID of the edit.
 	ID int64 `json:"id"`
-	// Timestamp is the date and time when the edit was saved.
+	// Timestamp of the edit.
 	Timestamp time.Time `json:"timestamp"`
-	// Minor indicates if the edit was marked as minor.
+	// Minor indicates if it was a minor edit.
 	Minor bool `json:"minor"`
-	// Size is the size of the page in bytes.
+	// Size of the page in bytes.
 	Size int64 `json:"size"`
-	// Delta is the size difference compared to the previous revision in bytes.
+	// Delta is the size change in bytes.
 	Delta int64 `json:"delta"`
-	// Comment is the edit summary summary message.
+	// Comment is the edit description.
 	Comment string `json:"comment"`
-	// User is the contributor who made the edit.
+	// User who made the edit.
 	User *User `json:"user,omitempty"`
 }
 
-// RevisionList represents a segment of a page's revision history.
+// RevisionList is a list of revisions.
 type RevisionList struct {
-	// Revisions is the list of revision edits returned.
+	// Revisions list.
 	Revisions []Revision `json:"revisions"`
-	// Continue is the pagination token indicating where to continue (corresponds to older_than revision ID).
+	// Continue token for next page.
 	Continue string `json:"continue,omitempty"`
 }
 
-// SearchResult represents a single search match in the wiki index.
+// SearchResult is a search match.
 type SearchResult struct {
-	// ID is the unique page identifier.
+	// ID of the page.
 	ID int64 `json:"id"`
-	// Key is the URL-friendly key of the matching page.
+	// Key is the URL name.
 	Key string `json:"key"`
-	// Title is the readable display title.
+	// Title of the page.
 	Title string `json:"title"`
-	// Excerpt is the snippet containing the highlighted match term.
+	// Excerpt with matching terms.
 	Excerpt string `json:"excerpt"`
-	// MatchedTitle is the title of the redirect if matched via redirect.
+	// MatchedTitle (if redirected).
 	MatchedTitle *string `json:"matched_title,omitempty"`
-	// Description is the Wikidata description.
+	// Description from Wikidata.
 	Description *string `json:"description,omitempty"`
-	// Thumbnail is the page thumbnail if available.
+	// Thumbnail image.
 	Thumbnail *Thumbnail `json:"thumbnail,omitempty"`
 }
 
-// SearchResponse represents the search results page wrapper.
+// SearchResponse holds search results.
 type SearchResponse struct {
-	// Pages is the slice of matching search results.
+	// Pages matches.
 	Pages []SearchResult `json:"pages"`
 }
 
-// LatestFileInfo represents upload metadata of the latest file version.
+// LatestFileInfo details the latest upload.
 type LatestFileInfo struct {
-	// Timestamp is the upload date and time.
+	// Timestamp of upload.
 	Timestamp time.Time `json:"timestamp"`
-	// User is the editor who uploaded the file.
+	// User who uploaded.
 	User *User `json:"user,omitempty"`
 }
 
-// PreferredFileInfo represents preview metadata for the preferred file resolution.
+// PreferredFileInfo is preview info for a file.
 type PreferredFileInfo struct {
-	// MediaType indicates the media classification (e.g. BITMAP, VIDEO, AUDIO).
+	// MediaType classification (image/video/etc).
 	MediaType string `json:"mediatype"`
-	// Size is the size of the file in bytes.
+	// Size in bytes.
 	Size int64 `json:"size"`
-	// Width is the horizontal dimension in pixels.
+	// Width in pixels.
 	Width int `json:"width"`
-	// Height is the vertical dimension in pixels.
+	// Height in pixels.
 	Height int `json:"height"`
-	// Duration is the length in seconds (applicable to audio/video).
+	// Duration in seconds (video/audio).
 	Duration *float64 `json:"duration,omitempty"`
-	// URL is the download path.
+	// URL to download.
 	URL string `json:"url"`
 }
 
-// OriginalFileInfo represents the full resolution file details.
+// OriginalFileInfo is original file info.
 type OriginalFileInfo struct {
-	// URL is the download path of the original full-size file.
+	// URL to download.
 	URL string `json:"url"`
-	// Width is the horizontal dimension of the original file in pixels.
+	// Width in pixels.
 	Width int `json:"width"`
-	// Height is the vertical dimension of the original file in pixels.
+	// Height in pixels.
 	Height int `json:"height"`
 }
 
-// File represents file metadata for a media resource.
+// File represents media metadata.
 type File struct {
-	// Title is the standard title of the file, including the File: namespace prefix.
+	// Title of the file.
 	Title string `json:"title"`
-	// FileDescriptionURL is the URL linking to the Commons description page.
+	// FileDescriptionURL is the Commons page.
 	FileDescriptionURL string `json:"file_description_url"`
-	// Latest contains details of the latest upload transaction.
+	// Latest upload details.
 	Latest *LatestFileInfo `json:"latest,omitempty"`
-	// Preferred holds preview metadata for the file.
+	// Preferred preview details.
 	Preferred *PreferredFileInfo `json:"preferred,omitempty"`
-	// Original holds original resource download URL.
+	// Original file details.
 	Original *OriginalFileInfo `json:"original,omitempty"`
-	// Thumbnail contains metadata for the default size thumbnail.
+	// Thumbnail details.
 	Thumbnail *Thumbnail `json:"thumbnail,omitempty"`
 }

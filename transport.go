@@ -22,8 +22,7 @@ type cacheEntry struct {
 	expiresAt  time.Time
 }
 
-// cacheTransport wraps an underlying HTTP RoundTripper and implements transparent
-// in-memory caching of successful GET requests.
+// cacheTransport caches successful GET requests in memory.
 type cacheTransport struct {
 	underlying http.RoundTripper
 	ttl        time.Duration
@@ -33,7 +32,7 @@ type cacheTransport struct {
 	cache map[string]cacheEntry
 }
 
-// newCacheTransport constructs a new cacheTransport.
+// newCacheTransport creates a new cache transport.
 func newCacheTransport(underlying http.RoundTripper, ttl time.Duration, maxEntries int) *cacheTransport {
 	return &cacheTransport{
 		underlying: underlying,
@@ -43,7 +42,7 @@ func newCacheTransport(underlying http.RoundTripper, ttl time.Duration, maxEntri
 	}
 }
 
-// RoundTrip implements the http.RoundTripper interface.
+// RoundTrip handles caching for the request.
 func (c *cacheTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Method != http.MethodGet {
 		return c.underlying.RoundTrip(req)
@@ -99,15 +98,14 @@ func (c *cacheTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// retryTransport wraps an underlying HTTP RoundTripper and implements transparent
-// rate limiting and retry logic with exponential backoff and jitter.
+// retryTransport handles rate limiting and retrying failed requests.
 type retryTransport struct {
 	underlying http.RoundTripper
 	limiter    *rate.Limiter
 	maxRetries int
 }
 
-// newRetryTransport constructs a new retryTransport.
+// newRetryTransport creates a new retry transport.
 func newRetryTransport(underlying http.RoundTripper, limit rate.Limit, burst int, maxRetries int) *retryTransport {
 	if underlying == nil {
 		underlying = http.DefaultTransport
@@ -119,9 +117,9 @@ func newRetryTransport(underlying http.RoundTripper, limit rate.Limit, burst int
 	}
 }
 
-// RoundTrip executes the request, applying rate limiting and retry logic.
+// RoundTrip executes the request with rate limiting and retries.
 func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Apply rate limiting. This blocks until a token is available or context is cancelled.
+	// Wait for rate limit token.
 	if err := t.limiter.Wait(req.Context()); err != nil {
 		return nil, fmt.Errorf("rate limiter wait: %w", err)
 	}
@@ -130,9 +128,9 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var lastWikiErr *wikierrors.WikiError
 
-	// Seed rand source for jitter (thread-safe, package-level math/rand is auto-seeded since Go 1.20)
+	// Run request, retrying if necessary.
 	for attempt := 0; attempt <= t.maxRetries; attempt++ {
-		// Rewind request body if it exists for retry attempts
+		// Reset body if retrying.
 		if attempt > 0 && req.GetBody != nil {
 			body, err := req.GetBody()
 			if err != nil {
@@ -141,23 +139,23 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			req.Body = body
 		}
 
-		// Ensure context is not cancelled before launching request
+		// Check if context is cancelled.
 		if err := req.Context().Err(); err != nil {
 			return nil, err
 		}
 
 		resp, lastErr = t.underlying.RoundTrip(req)
 		if lastErr != nil {
-			// Network/transport level errors are returned directly.
+			// Return network errors immediately.
 			return nil, lastErr
 		}
 
-		// Success path (non-error HTTP status)
+		// Return successful response.
 		if resp.StatusCode < 400 {
 			return resp, nil
 		}
 
-		// Read a short portion of response body to capture the API error message.
+		// Read error message from response.
 		var msg string
 		if resp.Body != nil {
 			msgBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -165,7 +163,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			msg = string(msgBytes)
 		}
 
-		// Map HTTP status code to specific SDK sentinel errors
+		// Map HTTP status to custom error.
 		var sentinelErr error
 		switch resp.StatusCode {
 		case http.StatusNotFound:
@@ -191,14 +189,13 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		lastWikiErr = wikiErr
 
-		// Determine if we should retry.
-		// Only retry on rate limiting (429) or temporary server unavailability (503).
+		// Retry only on rate limit (429) or server error (503).
 		shouldRetry := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable
 		if !shouldRetry || attempt == t.maxRetries {
 			return nil, wikiErr
 		}
 
-		// Calculate backoff delay
+		// Calculate retry delay.
 		var delay time.Duration
 		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
 			if retryAfterHeader := resp.Header.Get("Retry-After"); retryAfterHeader != "" {
@@ -206,12 +203,12 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 		}
 
-		// Use exponential backoff + jitter if delay is not set by Retry-After header
+		// Fallback to exponential backoff.
 		if delay <= 0 {
 			delay = calculateBackoff(attempt)
 		}
 
-		// Wait for backoff delay or context cancellation
+		// Wait before retrying.
 		select {
 		case <-req.Context().Done():
 			return nil, req.Context().Err()
@@ -225,9 +222,9 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("retry limit exceeded")
 }
 
-// parseRetryAfter parses the Retry-After header value, which can be seconds or an HTTP-date.
+// parseRetryAfter parses the Retry-After header (seconds or date).
 func parseRetryAfter(header string) time.Duration {
-	// Try parsing as integer seconds first
+	// Parse as seconds.
 	if secs, err := strconv.Atoi(header); err == nil {
 		if secs > 0 {
 			return time.Duration(secs) * time.Second
@@ -235,7 +232,7 @@ func parseRetryAfter(header string) time.Duration {
 		return 0
 	}
 
-	// Try parsing standard HTTP-date formats
+	// Parse as HTTP date.
 	formats := []string{
 		time.RFC1123,
 		time.RFC1123Z,
@@ -253,24 +250,23 @@ func parseRetryAfter(header string) time.Duration {
 	return 0
 }
 
-// calculateBackoff calculates exponential backoff with ±20% jitter.
-// attempt is 0-indexed.
+// calculateBackoff calculates wait time with exponential delay and random jitter.
 func calculateBackoff(attempt int) time.Duration {
-	// Prevent bit shift overflow (time.Second is 10^9, so shift of 30 is safe for float64/int64)
+	// Avoid overflow.
 	shift := attempt
 	if shift > 30 {
 		shift = 30
 	}
-	// base backoff: 1s * 2^attempt
+	// Double the delay each time (base is 1 second).
 	backoff := float64(time.Second << shift)
 
-	// Cap base backoff at a reasonable maximum (e.g. 30 seconds) to prevent infinite growth
+	// Cap maximum delay at 30 seconds.
 	const maxBackoff = 30 * time.Second
 	if backoff > float64(maxBackoff) {
 		backoff = float64(maxBackoff)
 	}
 
-	// ±20% jitter (ranges between 0.8 and 1.2)
+	// Add random variance (+/- 20%).
 	jitter := 0.8 + 0.4*rand.Float64()
 	return time.Duration(backoff * jitter)
 }

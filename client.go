@@ -1,6 +1,4 @@
-// Package wikigo provides a production-quality, type-safe Go SDK for the Wikimedia REST API.
-// It wraps pages, search, revisions, and media APIs with context propagation,
-// structured error handling, rate limiting, and exponential backoff retry logic.
+// Package wikigo is a client for the Wikimedia API.
 package wikigo
 
 import (
@@ -10,55 +8,54 @@ import (
 	"strings"
 )
 
-// Client is the primary entrypoint for the Wikimedia REST API SDK.
-// It organizes API methods into resource-scoped sub-clients.
+// Client is the main entry point to interact with the Wikimedia API.
 type Client struct {
-	// Pages provides operations related to reading page content and summaries.
+	// Pages handles page content and summaries.
 	Pages *PagesClient
-	// Search provides endpoints to query the wiki index.
+	// Search handles search queries.
 	Search *SearchClient
-	// Revisions provides endpoints to inspect page history revisions.
+	// Revisions handles page edit history.
 	Revisions *RevisionsClient
-	// Media provides operations to retrieve media file details.
+	// Media handles file metadata.
 	Media *MediaClient
 
 	cfg        *config
 	httpClient *http.Client
 }
 
-// PagesClient groups API operations related to pages.
+// PagesClient handles page operations.
 type PagesClient struct {
 	client *Client
 }
 
-// SearchClient groups API operations related to search.
+// SearchClient handles search operations.
 type SearchClient struct {
 	client *Client
 }
 
-// RevisionsClient groups API operations related to revisions history.
+// RevisionsClient handles revision history operations.
 type RevisionsClient struct {
 	client *Client
 }
 
-// MediaClient groups API operations related to media files.
+// MediaClient handles media file operations.
 type MediaClient struct {
 	client *Client
 }
 
-// NewClient constructs a new wikigo client using the provided functional options.
+// NewClient creates a new API client.
 func NewClient(opts ...Option) *Client {
 	c := defaultConfig()
 	for _, opt := range opts {
 		opt(c)
 	}
 
-	// Build default baseURL if not overridden
+	// Set default URL if none is provided.
 	if c.baseURL == "" {
 		c.baseURL = "https://" + c.language + "." + c.project + ".org"
 	}
 
-	// Wrap transport of target http.Client with our custom retry and rate limiting transport
+	// Set up rate limiting, retries, and caching.
 	var transport http.RoundTripper = newRetryTransport(c.httpClient.Transport, c.rateLimit, c.rateBurst, c.maxRetries)
 	if c.cacheEnabled {
 		transport = newCacheTransport(transport, c.cacheTTL, c.cacheMaxEntries)
@@ -72,7 +69,7 @@ func NewClient(opts ...Option) *Client {
 		},
 	}
 
-	// Initialize sub-clients
+	// Set up sub-clients.
 	client.Pages = &PagesClient{client: client}
 	client.Search = &SearchClient{client: client}
 	client.Revisions = &RevisionsClient{client: client}
@@ -81,8 +78,7 @@ func NewClient(opts ...Option) *Client {
 	return client
 }
 
-// newRequest constructs an HTTP request, injects standard headers (like User-Agent),
-// sets the request context, and resolves the correct full API URL.
+// newRequest builds the HTTP request with standard headers and the correct URL.
 func (c *Client) newRequest(ctx context.Context, method string, useCoreAPI bool, path string, body io.Reader) (*http.Request, error) {
 	baseURL := strings.TrimSuffix(c.cfg.baseURL, "/")
 	if !strings.HasPrefix(path, "/") {
@@ -101,15 +97,14 @@ func (c *Client) newRequest(ctx context.Context, method string, useCoreAPI bool,
 		return nil, err
 	}
 
-	// Wikimedia API policy requires a custom user agent to prevent request blocks.
+	// Set headers required by Wikimedia.
 	req.Header.Set("User-Agent", c.cfg.userAgent)
 	req.Header.Set("Accept", "application/json")
 
 	return req, nil
 }
 
-// do executes the request and expects the response to have been checked/closed in retryTransport
-// if it was an error. Therefore, if err == nil, caller MUST close the response body.
+// do sends the request. If successful, you must close the response body.
 func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }

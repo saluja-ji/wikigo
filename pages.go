@@ -10,8 +10,7 @@ import (
 	"github.com/saluja-ji/wikigo/models"
 )
 
-// Get retrieves metadata for a specific wiki page by its title using the Core REST API.
-// It maps to the GET /page/{title}/bare endpoint.
+// Get retrieves a page's metadata by its title.
 func (p *PagesClient) Get(ctx context.Context, title string) (*models.Page, error) {
 	escapedTitle := sanitizeTitle(title)
 	req, err := p.client.newRequest(ctx, http.MethodGet, true, "/page/"+escapedTitle+"/bare", nil)
@@ -33,8 +32,7 @@ func (p *PagesClient) Get(ctx context.Context, title string) (*models.Page, erro
 	return &page, nil
 }
 
-// GetSummary retrieves a structured page summary for previews using the legacy REST API.
-// It maps to the GET /page/summary/{title} endpoint.
+// GetSummary gets a short summary of a page for previews.
 func (p *PagesClient) GetSummary(ctx context.Context, title string) (*models.Summary, error) {
 	escapedTitle := sanitizeTitle(title)
 	req, err := p.client.newRequest(ctx, http.MethodGet, false, "/page/summary/"+escapedTitle, nil)
@@ -56,7 +54,7 @@ func (p *PagesClient) GetSummary(ctx context.Context, title string) (*models.Sum
 	return &summary, nil
 }
 
-// sanitizeTitle replaces spaces with underscores and applies URL path escaping.
+// sanitizeTitle formats the title for use in the URL.
 func sanitizeTitle(title string) string {
 	t := strings.ReplaceAll(title, " ", "_")
 	return url.PathEscape(t)

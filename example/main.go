@@ -1,5 +1,4 @@
-// Package main provides a runnable example of using the wikigo SDK
-// to interact with the live Wikimedia REST API.
+// Package main is an example of using the wikigo client.
 package main
 
 import (
@@ -15,9 +14,7 @@ import (
 )
 
 func main() {
-	// 1. Initialize the client using Functional Options
-	// We configure a rate limiter of 2 requests per second (burst 2) to easily observe rate limiting in action,
-	// and a custom User-Agent header (required by Wikimedia API policies).
+	// 1. Create the client. We set a low rate limit to test rate limiting.
 	fmt.Println("Initializing wikigo client...")
 	client := wikigo.NewClient(
 		wikigo.WithLanguage("en"),
@@ -29,7 +26,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// 2. Fetch page summary for "Earth"
+	// 2. Get the summary for a page.
 	fmt.Println("\n--- 1. Fetching Page Summary for 'Earth' ---")
 	summary, err := client.Pages.GetSummary(ctx, "Earth")
 	if err != nil {
@@ -41,7 +38,7 @@ func main() {
 		if summary.Thumbnail != nil {
 			fmt.Printf("Thumbnail:   %s\n", summary.Thumbnail.Source)
 		}
-		// Print a small snippet of the extract
+		// Print a snippet of the text.
 		if len(summary.Extract) > 150 {
 			fmt.Printf("Extract:     %s...\n", summary.Extract[:150])
 		} else {
@@ -49,7 +46,7 @@ func main() {
 		}
 	}
 
-	// 3. Search for pages containing "Go (programming language)"
+	// 3. Search for pages.
 	fmt.Println("\n--- 2. Searching for 'Go (programming language)' ---")
 	searchResp, err := client.Search.Pages(ctx, "Go (programming language)", 3)
 	if err != nil {
@@ -64,7 +61,7 @@ func main() {
 		}
 	}
 
-	// 4. List revisions history for the "Earth" page
+	// 4. Get the edit history of a page.
 	fmt.Println("\n--- 3. Fetching Page Revision History for 'Earth' ---")
 	history, err := client.Revisions.List(ctx, "Earth", 3, "")
 	if err != nil {
@@ -82,9 +79,8 @@ func main() {
 		fmt.Printf("Continue Token (older_than): %s\n", history.Continue)
 	}
 
-	// 5. Retrieve details for a media file
+	// 5. Get file details.
 	fmt.Println("\n--- 4. Fetching Media File details ---")
-	// Note: commons.wikimedia.org files can also be retrieved. Here we get an image from Wikipedia.
 	fileInfo, err := client.Media.GetFile(ctx, "File:The Earth seen from Apollo 17.jpg")
 	if err != nil {
 		handleError(err)
@@ -97,7 +93,7 @@ func main() {
 		}
 	}
 
-	// 6. Test Error Handling (fetching a non-existent page)
+	// 6. Request a non-existent page to test error handling.
 	fmt.Println("\n--- 5. Triggering Error Handling (404 Page Not Found) ---")
 	_, err = client.Pages.Get(ctx, "ThisPageDefinitelyDoesNotExist123456789")
 	if err != nil {
